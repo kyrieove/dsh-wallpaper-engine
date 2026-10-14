@@ -19,7 +19,8 @@
  *     「外观 / 画面处理器」）与模块级工具（applySelection / setSetting / setTransient /
  *     emit / SliderRow / switchRow / cardKeyDown / playableInventory / groupWallpapers /
  *     playbackIsVideoLike / CARD_TYPE_LABELS / openSettingsSection / userPropsPanelOpen /
- *     openUserPropsPanel / closeUserPropsPanel / renderUserPropsPanel）。
+ *     openUserPropsPanel / closeUserPropsPanel / renderUserPropsPanel /
+ *     renderNowPlayingSection / acquireNowPlaying / releaseNowPlaying）。
  *   · 三档页签是**视图状态**（localStorage，仅 UI，不进 config.json）；两页里的控件
  *     一律受控：值从 `sel` 读、写走上面那批处理器 —— **不得**出现 `selection.X =`
  *     字面直写（守卫 ①e 的棘轮只盯直写，本文件必须保持 0），也不许在组件里另存一份值
@@ -726,6 +727,15 @@
     React.useEffect(() => {
       if (qpTab === "appearance" && fontOpen && sel.fontCustom) ensureSystemFonts(false);
     }, [qpTab, fontOpen, sel.fontCustom]);
+    // 「听歌」轮询的**启停**（侧栏这一档）：门 = 停在壁纸页 + 总开关开着。
+    // 与设置页那半同形（见 client.js 的同名 effect），两处共用模块级的引用计数 ——
+    // 同时挂着只跑一条拍子；都走开就停拍。侧栏这半是"顺手看一眼在听什么"的主场，
+    // 所以它读的是同一份 `sel.nowPlaying`（拍子在 src/now-playing-store.js）。
+    React.useEffect(() => {
+      if (!(qpTab === "wallpaper" && sel.nowPlayingEnabled === true)) return undefined;
+      acquireNowPlaying();
+      return () => releaseNowPlaying();
+    }, [qpTab, sel.nowPlayingEnabled]);
     const switchView = (v) => {
       if (v === view) return;
       setView(v);
@@ -855,6 +865,10 @@
                 React.createElement("div", { className: "we-qp__section" },
                   renderAudioTab(sidebarRenderCtx({ sel, onToggleAudio, onVideoVolume })),
                 ),
+                // 听歌（与「扩展」页签四号模块同一份渲染器、同一状态）：**没有媒体时
+                // 整节返回 null**（用户口径「整块藏起来」），所以这里连包裹层都不需要 ——
+                // 渲染器自己就是"有就画、没有就什么都不画"。总开关关着时它同样返回 null。
+                renderNowPlayingSection(sidebarRenderCtx({ sel, onMediaControl })),
         ),
       ),
       qpRenderFoot(foot),

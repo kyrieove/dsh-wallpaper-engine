@@ -353,6 +353,12 @@ const selection = {
   avatarBusy: "",
   avatarError: "",
   avatarCompressing: false,
+  // 听歌（「扩展」页签四号模块）的媒体快照（transient）：`nowPlaying` 就是宿主
+  // /now-playing 回的 `media` 原样（null = 宿主确认没有在播）。写入权在
+  // src/now-playing-store.js（那条通道的取数生命周期），面板渲染期读取 ——
+  // 与 systemFonts 一族同口径：不落盘、不进 schema。**没有"取得时刻"字段**：
+  // 新鲜度由那条通道的拍子保证（切走就停拍并清空），不需要第二个时间戳。
+  nowPlaying: null,
   // 自定义吉祥物立绘的导入态（transient）：在途标志与最后一条错误（同上面两枚口径）。
   mascotBusy: false,
   mascotError: "",
@@ -2675,6 +2681,28 @@ async function postImageAsset(path, blob, what) {
 function onAvatarEnabled(e) { setSetting("avatarEnabled", e.target.checked); emit(); }
 function onAvatarSize(v, live) { commitLiveSetting("avatarSize", v, live); if (live) syncAvatarLayer(); }
 function onAvatarRadius(v, live) { commitLiveSetting("avatarRadius", v, live); if (live) syncAvatarLayer(); }
+// ── 「扩展」页签（四号模块：听歌）的处理器 ─────────────────────────────────────
+// 与别的模块同形：控件只报事件，写设置 + 重渲染都在这里。两处差别：
+//   · 总开关关掉时要**立刻**把轮询停掉并清快照（`releaseNowPlaying` 只在面板卸载时调，
+//     而"开关关着但面板还开着"是常态）—— 所以这里显式清一次；再打开由 effect 重新 acquire。
+//   · 反向控制后**立刻补拉一拍**：宿主 control() 会把中间件回的快照写进自己的缓存
+//     （见 lib/media/supervisor.js 的 control），不等下一拍就能看到按钮反馈。
+function onNowPlayingEnabled(e) {
+  setSetting("nowPlayingEnabled", e.target.checked);
+  // 关掉时立刻清快照（`releaseNowPlaying` 只在面板卸载时调，而"开关关着但面板还开着"
+  // 是常态）：否则关掉开关后那块媒体信息会原样挂在屏上，直到用户切走页签。
+  if (e.target.checked !== true) setTransient("nowPlaying", null);
+  emit();
+}
+/** 三个按钮共用一个动作出口。**不另开第二条腿**：`hostMediaControl` 已经是
+ *  `/media-control` 的客户端唯一调用点（src/client-media-frame.js，含失败计数与诊断上报），
+ *  面板与渲染页控制面共用它 —— 同一个宿主路由出现两个调用点，就会有两份失败语义。
+ *  动作名就是宿主白名单那五个（lib/media/supervisor.js 的 MEDIA_CONTROL_ACTIONS）。 */
+function onMediaControl(action) {
+  // 命令发完立刻补拉一拍：宿主 control() 会把中间件回的快照写进自己的缓存
+  //（见 lib/media/supervisor.js 的 control 收尾），不等下一拍就能看到按钮反馈。
+  hostMediaControl(action).then(() => pollNowPlayingOnce()).catch(() => { /* 失败静默：按钮点了没反应不该打断面板 */ });
+}
 // 上传裁切（issue #191 问题 1）：用户口径是"上传非正方形、或主体不在中央时效果很差"。
 // 做法是**导入时先裁再传**（而不是存裁切参数第二次渲染）：
 //   · 盘上那张就是裁完的方形图 ⇒ 预览、会话里、以及"以后任何读到它的地方"天然一致，
@@ -4174,6 +4202,17 @@ function WallpaperPicker() {
     if (activeTab === "appearance" && pickerFontOpen && sel.fontCustom) ensureSystemFonts(false);
   }, [activeTab, pickerFontOpen, sel.fontCustom]);
 
+  // 「听歌」轮询的**启停**（设置页这一档）：门 = 停在「扩展」页签 + 总开关开着。
+  // 与 system-fonts 那条 effect 同形，但它是**长驻拍子**（不是一次性取数）⇒ 必须成对
+  // acquire / release：切走页签或关开关就停拍（`releaseNowPlaying` 清空快照），
+  // 回到这一页再起。⚠️ 侧栏壁纸页那半有**它自己**一份（src/quick-panel.js）——
+  // 引用计数是模块级的，两处同时挂着时只跑一条拍子。
+  React.useEffect(() => {
+    if (!(activeTab === "extensions" && sel.nowPlayingEnabled === true)) return undefined;
+    acquireNowPlaying();
+    return () => releaseNowPlaying();
+  }, [activeTab, sel.nowPlayingEnabled]);
+
   // 侧栏深链（快捷播放面板底栏的「更多外观设置 ›」/「更多播放设置 ›」）：请求"打开
   // 设置页后停在哪一页"。打开对话框由 src/sidebar-right.js 的 DOM 路径负责，这里只管
   // 落地 —— 走**同一个 switchTab**（清待确认 / 退出下钻 / 写 localStorage 这些副作用
@@ -4304,6 +4343,9 @@ function WallpaperPicker() {
     onAvatarAutoCompress,
     // 模块级重置（issue #192）：各模块头的 ↺ 把该模块的键整批写回默认值。
     onResetModule,
+    // 「听歌」（四号模块）：总开关 + 三个按钮的动作出口。数据腿（轮询 / 引用计数）不住
+    // 渲染器里 —— 渲染器只读 `sel.nowPlaying`，见 src/now-playing-store.js 的文件头。
+    onNowPlayingEnabled, onMediaControl,
   });
   const renderActiveTab = () => {
     if (activeTab === "about") return renderAboutTab({});

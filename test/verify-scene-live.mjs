@@ -3068,6 +3068,8 @@ check('官方侧栏接入用能力门 + 可选服务（不写进 inject，低版
 // 一次才知道。React / store 用最小替身，**渲染器用真的**（import src/panel-tabs.js）。
 {
   const panelMod = await import(pathToFileURL(join(root, 'src', 'panel-tabs.js')).href);
+  // 「听歌」那半的共用节：与上面同一理由（挂载台按文件 import，运行时同作用域）。
+  const extNowPlayingMod = await import(pathToFileURL(join(root, 'src', 'ext-nowplaying.js')).href);
   // 刀4：节的渲染器拆到 5 个兄弟模块里了 —— 挂载台是**按文件 import** 的，而运行时是同作用域，
   // 所以把它们逐个挂到 globalThis（与 glass-panel / section-head / 字体表同一做法）。
   for (const rel of panelSources().slice(0, -1)) {
@@ -3167,6 +3169,9 @@ check('官方侧栏接入用能力门 + 可选服务（不写进 inject，低版
     'emit', 'setTransient', 'setSetting', 'onTogglePlay', 'onClear', 'onGroupChange', 'onNextWallpaper',
     'onToggleRotation', 'onToggleAudio', 'onVideoVolume', 'loadInventory', 'openSettingsSection',
     'renderAppearanceTab', 'renderEffectsTab', 'renderAudioTab',
+    // 「听歌」（「扩展」四号模块）：侧栏壁纸页那半会画共用节、并按开关启停那条轮询 ——
+    // 三个名字都是 quick-panel.js 里的裸标识符 ⇒ 必须在这里当形参给（同上面那条纪律）。
+    'renderNowPlayingSection', 'acquireNowPlaying', 'releaseNowPlaying', 'onMediaControl',
     'onAccent', 'onBlur', 'onBorder', 'onGlassAlpha', 'onGlassColor', 'onGlassFidelity', 'onChatGlassFidelity', 'onExtraGlassSelectors', 'onToggleThemeFollow',
     'onScrim', 'onWallpaperBlur', 'onWallpaperOpacity',
     'onBackgroundBrightness', 'onBackgroundContrast', 'onBackgroundSaturate',
@@ -3243,6 +3248,10 @@ check('官方侧栏接入用能力门 + 可选服务（不写进 inject，低版
       loadInventory: noop, openSettingsSection: noop,
       renderAppearanceTab: panelMod.renderAppearanceTab, renderEffectsTab: panelMod.renderEffectsTab,
       renderAudioTab: panelMod.renderAudioTab,
+      // 听歌那半：渲染器给**真实现**（它就是 ext-nowplaying.js 的共用节，判据要判"真的画得出来"），
+      // 启停两条腿给 noop（拍子是模块级副作用，这个挂载台不该真的起网络）。
+      renderNowPlayingSection: extNowPlayingMod.renderNowPlayingSection,
+      acquireNowPlaying: noop, releaseNowPlaying: noop, onMediaControl: noop,
       onAccent: noop, onBlur: noop, onBorder: noop, onGlassAlpha: noop, onGlassColor: noop, onGlassFidelity: noop, onChatGlassFidelity: noop,
       onExtraGlassSelectors: noop,
       onToggleThemeFollow: noop, onScrim: noop, onWallpaperBlur: noop, onWallpaperOpacity: noop,
@@ -3752,8 +3761,8 @@ check('官方侧栏接入用能力门 + 可选服务（不写进 inject，低版
     // `PROFILE_PRESET_KEYS` 当判据：头像文件名属预设的**资产段**、`parallaxPluginDepths`
     // 属排除段，但两者都该跟着模块一起重置（重置不该留着"上次导入的头像"）。
     const missingDefault = allKeys.filter((k) => !Object.prototype.hasOwnProperty.call(schemaMod.DEFAULTS, k));
-    check('#192 模块分组：扩展 3 + 外观 6 共九组、非空、两两不相交、每键都有默认值可回写',
-      names.length === 9
+    check('#192 模块分组：扩展 4 + 外观 6 共十组、非空、两两不相交、每键都有默认值可回写',
+      names.length === 10
       && names.every((n) => groups[n].length > 0)
       && uniq.size === allKeys.length
       && missingDefault.length === 0,
@@ -6883,6 +6892,113 @@ check('we-assets 族已搬进 lib/routes/we-assets.js（门面里零残留）',
     && /path: `\$\{BASE\}\/we-assets-dir`/.test(weAssetsFamSrc));
 check('negative control: 门面里重新出现被搬走的路由体会被同一条判据拒掉',
   movedOut(hostSrc + '\n  jsonOut(404, { error: `未知素材源：${id}` });'));
+
+// ── 「扩展」页签**四号模块**（听歌）：两半各自的契约 ─────────────────────────
+// 与前三号同一张注册表 ⇒ 这一条按**注册表项形状 + 两半的分工**判，而不是复述实现：
+//   · 数据腿（src/now-playing-store.js）是**模块级通道**：只经 setTransient 写自己的两个
+//     瞬态字段、引用计数启停、失败退避；它不得持有渲染状态、不得画任何东西。
+//   · 描述符（src/ext-nowplaying.js）是**纯渲染器**：不写设置、不发通知、不直呼 selection，
+//     且侧栏那半在没有媒体时返回 null（用户口径「整块藏起来」）—— 三条都是可见行为，
+//     所以这里用真渲染 + 真 import 判，不是正则读注释。
+{
+  const nowPlayingStoreSrc = readFileSync(join(root, 'src', 'now-playing-store.js'), 'utf8');
+  const extNowPlayingSrc = readFileSync(join(root, 'src', 'ext-nowplaying.js'), 'utf8');
+  const storeCode = stripComments(nowPlayingStoreSrc);
+  const islandCode = stripComments(extNowPlayingSrc);
+  const nowPlayingMod = await import(pathToFileURL(join(root, 'src', 'ext-nowplaying.js')).href);
+  const storeMod = await import(pathToFileURL(join(root, 'src', 'now-playing-store.js')).href);
+  const mod = nowPlayingMod.NOWPLAYING_EXTENSION_MODULE;
+  // 数据腿：瞬态字段必须经**唯一写入口**（本仓的写入口纪律，与 src/system-fonts.js 同形）；
+  // 裸直写 `selection.nowPlaying = …` 会让"这个字段归谁写"重新变得不可枚举。
+  check('now-playing-store.js：模块级通道（引用计数启停 + 瞬态经 setTransient + 失败退避）',
+    Object.keys(storeMod).sort().join(',')
+      === 'acquireNowPlaying,pollNowPlayingOnce,releaseNowPlaying'
+    && typeof storeMod.acquireNowPlaying === 'function'
+    && typeof storeMod.releaseNowPlaying === 'function'
+    && typeof storeMod.pollNowPlayingOnce === 'function'
+    // 那个瞬态字段经 setTransient（裸直写 = 0 处）。
+    && storeCode.includes('setTransient("nowPlaying"')
+    && !/(^|[^.\w$])selection\.nowPlaying/.test(storeCode)
+    // 引用计数：0→1 起拍、→0 停拍（"没人在看就不发请求"是这一族的存在理由）。
+    && storeCode.includes('nowPlayingRefs += 1')
+    && storeCode.includes('nowPlayingRefs === 1')
+    && storeCode.includes('clearInterval(nowPlayingTimer)')
+    // 失败退避 + 成功复位（慢拍常量必须是慢于快拍的另一个值）。
+    && storeCode.includes('NOW_PLAYING_FAIL_SLOW_AT')
+    && storeCode.includes('restartNowPlayingTimer')
+    && storeMod.NOW_PLAYING_FAST_MS === undefined,
+    'exports=' + Object.keys(storeMod).sort().join(','));
+  // 描述符：注册表项形状 + 纯渲染器契约（与另三个模块同一条）。
+  check('ext-nowplaying.js：注册表项形状 + 纯渲染器（不写设置 / 不发通知 / 不直呼 selection）',
+    Boolean(mod) && mod.id === 'nowplaying' && mod.resetGroup === 'nowPlaying'
+    && mod.render === nowPlayingMod.renderNowPlayingIsland
+    && typeof mod.title === 'string' && mod.title === globalThis.weT('听歌')
+    && typeof mod.desc === 'string' && mod.desc.length > 0
+    && !islandCode.includes('setSetting') && !islandCode.includes('emit(')
+    && !islandCode.includes('commitLiveSetting')
+    && !/(^|[^.\w$])selection\./.test(islandCode),
+    'id=' + (mod && mod.id) + ' title=' + (mod && mod.title));
+  // 可见行为：总开关关着只画开关 + 说明；开着且**没有媒体**时画空态（岛）/ 返回 null（侧栏节）。
+  {
+    // 本块在文件末尾，够不到上面那些块作用域的 `labelSeq` / `textsOf` ⇒ 这里用**本地**等价实现：
+    // 只认走 switchRow 的那一枚标签（`stub-label` 是上面挂到 globalThis 的标签替身产出的类名）。
+    const labelSeqHere = (n, acc = []) => {
+      if (Array.isArray(n)) { n.forEach((x) => labelSeqHere(x, acc)); return acc; }
+      if (!n || typeof n !== 'object') return acc;
+      const cls = n.props && n.props.className;
+      if (typeof cls === 'string' && cls.includes('stub-label')) {
+        const txt = (Array.isArray(n.children) ? n.children : []).filter((c) => typeof c === 'string').join('');
+        if (txt) acc.push(txt);
+      }
+      if (Array.isArray(n.children)) n.children.forEach((x) => labelSeqHere(x, acc));
+      return acc;
+    };
+    const textsHere = (n, acc = []) => {
+      if (Array.isArray(n)) { n.forEach((x) => textsHere(x, acc)); return acc; }
+      if (typeof n === 'string') { acc.push(n); return acc; }
+      if (!n || typeof n !== 'object') return acc;
+      if (Array.isArray(n.children)) n.children.forEach((x) => textsHere(x, acc));
+      return acc;
+    };
+    /** 树里所有 `title` / `aria-label` 属性的值（按钮的文案走属性，不走 children）。 */
+    const attrsHere = (n, acc = []) => {
+      if (Array.isArray(n)) { n.forEach((x) => attrsHere(x, acc)); return acc; }
+      if (!n || typeof n !== 'object') return acc;
+      const p = n.props || {};
+      for (const k of ['title', 'aria-label']) {
+        if (typeof p[k] === 'string' && p[k]) acc.push(p[k]);
+      }
+      if (Array.isArray(n.children)) n.children.forEach((x) => attrsHere(x, acc));
+      return acc;
+    };
+    const emptySel = Object.assign({}, schemaMod.DEFAULTS, { nowPlayingEnabled: true, nowPlaying: null });
+    const withMedia = Object.assign({}, schemaMod.DEFAULTS, {
+      nowPlayingEnabled: true,
+      nowPlaying: { hasMedia: true, title: 'T', artist: 'A', album: 'B', playing: true, position: 3, duration: 100 },
+    });
+    const islandOff = labelSeqHere(nowPlayingMod.renderNowPlayingIsland(
+      { sel: Object.assign({}, schemaMod.DEFAULTS), onNowPlayingEnabled: () => {}, onMediaControl: () => {} }));
+    const islandEmpty = textsHere(nowPlayingMod.renderNowPlayingIsland(
+      { sel: emptySel, onNowPlayingEnabled: () => {}, onMediaControl: () => {} }));
+    // 侧栏那半：没有媒体 / 开关关着都必须是 null（"整块藏起来"就是这一条）。
+    const sectionEmpty = nowPlayingMod.renderNowPlayingSection({ sel: emptySel, onMediaControl: () => {} });
+    const sectionOff = nowPlayingMod.renderNowPlayingSection(
+      { sel: Object.assign({}, schemaMod.DEFAULTS), onMediaControl: () => {} });
+    const sectionOn = nowPlayingMod.renderNowPlayingSection({ sel: withMedia, onMediaControl: () => {} });
+    const sectionOnTexts = textsHere(sectionOn).concat(attrsHere(sectionOn));
+    check('听歌的可见行为：关着只画总开关 · 开着无媒体时岛画空态而侧栏节返回 null · 有媒体才画',
+      islandOff.join('|') === [globalThis.weT('启用听歌')].join('|')
+      && islandEmpty.includes(globalThis.weT('没有正在播放的媒体'))
+      && sectionEmpty === null && sectionOff === null && sectionOn !== null
+      // 有媒体时画的是**真的曲目信息**（不是又一个空态）：标题与两个控制按钮的 title 都在。
+      && sectionOnTexts.includes('T')
+      && sectionOnTexts.includes(globalThis.weT('上一首'))
+      && sectionOnTexts.includes(globalThis.weT('下一首')),
+      'off=' + islandOff.length + ' empty=' + islandEmpty.length
+      + ' sectionEmpty=' + sectionEmpty + ' sectionOff=' + sectionOff + ' sectionOn=' + (sectionOn !== null)
+      + ' onTexts=' + sectionOnTexts.length);
+  }
+}
 
 // ── teardown ────────────────────────────────────────────────────────────────
 try { if (dispose) dispose(); } catch { /* ignore */ }

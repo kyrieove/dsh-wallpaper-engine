@@ -261,6 +261,23 @@ runtime the wallpaper is remembered and degrades to the legacy plain iframe (no 
   `::-webkit-scrollbar:horizontal { display: none }`, which would switch that container to custom scrollbars
   and change the look of the vertical one too; conversation content never scrolls sideways anyway (long
   tokens and wide code blocks scroll inside their own boxes).
+  The registry also holds a **"Now playing"** module (the **fourth** entry, off by default): descriptor
+  `src/ext-nowplaying.js` plus the data leg `src/now-playing-store.js`. The data leg is a **module-level
+  polling channel** (the renderer holds no state): it polls `GET /now-playing` (an existing host route;
+  the chain is media-bridge to Windows GSMTC, independent of any player plugin) and writes the host's
+  `media` object straight into the **transient** field `selection.nowPlaying` through the single
+  `setTransient` entry (never persisted, never in the schema), resetting the cadence on success and
+  backing off to a 10s slow poll after repeated failures; start and stop are **reference counted** (two
+  consumers: the island on the Extensions tab and the section on the sidebar's wallpaper page, each
+  acquiring on mount and releasing on unmount), so once both are gone the poll stops and **not a single
+  request is sent while nobody is looking**. The descriptor reads `sel.nowPlaying` and computes
+  everything on the spot (artwork / title, artist, album / progress bar / current lyric line / three
+  buttons), and is a pure renderer (it writes no setting, sends no notification and never touches
+  `selection` directly); the three buttons go through `onMediaControl` to `POST /media-control` (reusing
+  the existing `hostMediaControl` client leg; the actions are exactly the host's five-name allowlist) and
+  pull one extra frame right after the command so the button gives feedback. The sidebar half **returns
+  null with no media** (the user's wording: hide the whole block), while the settings half draws an empty
+  state (a switch that is on and shows nothing reads as broken).
   On the settings
   page that hosts it,
   picking wallpapers is an in-panel drill-in view (no modals) alongside hide/restore, transitions /

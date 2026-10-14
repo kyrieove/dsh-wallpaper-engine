@@ -32,7 +32,7 @@
 | 16 | `/live-frame` | lib/routes/live-frame.js:41 | 箭头 | disposers base mediaMap serveFile traceRequests liveFrameFile …(+2) | 3 |
 | 17 | `/media-status` | lib/routes/now-playing.js:82 | 箭头 | disposers base | 2 |
 | 18 | `/audio-spectrum` | lib/routes/now-playing.js:92 | 箭头 | disposers base | 2 |
-| 19 | `/now-playing` | lib/routes/now-playing.js:111 | 箭头 | disposers base | 3 |
+| 19 | `/now-playing` | lib/routes/now-playing.js:111 | 箭头 | disposers base | 4 |
 | 20 | `/now-playing/artwork` | lib/routes/now-playing.js:125 | 箭头 | disposers base serveFile | 2 |
 | 21 | `/media-control` | lib/routes/now-playing.js:143 | 箭头 | disposers base CONTROL_JSON_MAX_BYTES | 3 |
 | 22 | `/occlusion` | lib/routes/occlusion.js:47 | async 箭头 | disposers base hub | 4 |
@@ -50,7 +50,7 @@
 | 34 | `/fontsets` | lib/routes/fontsets.js:245 | async 箭头 | disposers base readFontSetId | 6 |
 | 35 | `/glass-presets` | lib/routes/presets.js:499 | async 箭头 | disposers base | 1 |
 | 36 | `/star-count` | lib/routes/github-stars.js:105 | async 箭头 | disposers base repoSlug log | 2 |
-| 37 | `/system-fonts` | lib/routes/system-fonts.js:460 | async 箭头 | disposers base | 4 |
+| 37 | `/system-fonts` | lib/routes/system-fonts.js:460 | async 箭头 | disposers base | 5 |
 | 38 | `/about-qr` | lib/routes/about-qr.js:65 | 箭头 | disposers base aboutDir serveFile | 3 |
 | 39 | `/mascot` | lib/routes/mascot.js:50 | 箭头 | disposers base serveFile mascotDir mascotPath MASCOT_EXT …(+4) | 6 |
 | 40 | `/avatar` | lib/routes/avatar.js:54 | 箭头 | disposers base serveFile avatarDir avatarPath AVATAR_SIDES …(+5) | 5 |

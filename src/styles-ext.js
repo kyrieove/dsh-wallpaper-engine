@@ -476,6 +476,33 @@ const CSS_EXT = `  /* ── 软件渲染回退（upstream #95，运行时探测
      滚动条连出现的机会都没有，scrollport 高度一动不动，位移照旧。
      用 hidden 而不是 clip：两者都只裁不滚，hidden 的支持面更广（clip 是 CSS Overflow 3）。 */
   body[data-we-parallax="on"] [data-conversation-scroll] { overflow-x: hidden; }
+
+  /* ── 「扩展」四号模块：听歌（数据腿见 src/now-playing-store.js，岛见 src/ext-nowplaying.js）──
+     两处共用同一棵 .we-np 子树（设置页的岛 + 侧栏壁纸页那一节），所以这里的规则一律
+     按结构写、不按容器写。版式：封面在左（固定 44px 方形，缺封面时画一个空框而不是塌掉）、
+     右侧一列信息（标题 / 副题 / 进度条 / 时间），歌词与三个按钮在整块下方。 */
+  .we-np { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+  .we-np__art {
+    width: 44px; height: 44px; flex: 0 0 44px; border-radius: 8px;
+    object-fit: cover; background: var(--we-glass-fill, rgba(127, 127, 127, 0.12));
+  }
+  /* 没有封面（宿主还在下载、或这首就是没有）时留一个同尺寸的占位：整行高度不跳。 */
+  .we-np__art--empty { display: block; border: 1px solid var(--we-glass-line, rgba(127, 127, 127, 0.25)); }
+  .we-np__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+  /* 标题 / 副题都单行截断：长歌名不许把这一块撑高（面板是定高列表的邻居）。 */
+  .we-np__title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .we-np__byline { font-size: 11px; opacity: 0.72; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .we-np__bar {
+    position: relative; height: 3px; border-radius: 2px; overflow: hidden; margin-top: 2px;
+    background: var(--we-glass-line, rgba(127, 127, 127, 0.25));
+  }
+  .we-np__fill { display: block; height: 100%; border-radius: 2px; background: var(--we-accent, #4f8cff); }
+  .we-np__time { font-size: 10px; opacity: 0.62; font-variant-numeric: tabular-nums; }
+  /* 歌词当前行：与 hint 同色系但单独一条，长行同样截断（不换行 ⇒ 面板高度稳定）。 */
+  .we-np__lyric { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .we-np__ctl { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  /* 三枚按钮等宽：图标字形宽度不一，不钉住就会让「播放」那颗在切换时左右跳。 */
+  .we-np__btn { flex: 0 0 auto; min-width: 44px; text-align: center; }
 `;
 
 export { CSS_EXT };

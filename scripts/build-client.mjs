@@ -299,6 +299,23 @@ const INLINE_MODULES = [
     markers: ['const PARALLAX_EXTENSION_MODULE = {', 'function renderParallaxIsland(ctx)'],
   },
   {
+    // 「扩展」页签**四号模块**（听歌）：两半与前三号同形 —— 数据腿（模块级轮询通道，只写
+    // selection 的两个瞬态字段）与描述符（渲染器，动作一律经 ctx 里的具名 on* 处理器）。
+    // 数据腿排在描述符之前：描述符渲染时按名引用 `renderNowPlayingSection` 之外的那几个
+    // 符号都在这份里，顺序读得出依赖方向。同样排在 panel-tabs 之前。
+    file: 'src/now-playing-store.js',
+    why: '「听歌」的数据腿：按拍 GET /now-playing 写瞬态快照（引用计数启停 / 失败退避 / 成功复位拍速；基座模块：只写自己的两个瞬态字段）',
+    markers: ['const NOW_PLAYING_FAST_MS = ', 'const NOW_PLAYING_SLOW_MS = ',
+      'function acquireNowPlaying()', 'function releaseNowPlaying()',
+      'function pollNowPlayingOnce()'],
+  },
+  {
+    file: 'src/ext-nowplaying.js',
+    why: '「扩展」页签四号模块的描述符 + 侧栏壁纸页共用节（一份渲染器、两个调用点；动作一律经 ctx 里的具名 on* 处理器）',
+    markers: ['const NOWPLAYING_EXTENSION_MODULE = {', 'function renderNowPlayingIsland(ctx)',
+      'function renderNowPlayingSection(ctx)'],
+  },
+  {
     // 头像导入的两道闸 + 零解码尺寸探针（#185 后续）。**纯函数**，因此是本仓少数几个
     // 能被守卫**直接执行**的模块之一（用真字节喂真函数 —— 位域读错一位那种错，
     // "源码里有没有这行字"测不出来）。排在 avatar-layer / ext-avatar / client 正文之前：

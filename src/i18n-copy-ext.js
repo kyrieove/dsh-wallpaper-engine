@@ -130,6 +130,19 @@ const WE_I18N_EN_EXT = {
   "立绘": "mascot art",
   "清除失败：{error}": "Clear failed: {error}",
 
+  // ── src/ext-nowplaying.js · 「扩展」页签**四号**模块（听歌）──
+  //    只有一个设置键（`nowPlayingEnabled`，真源 lib/settings-schema.js）；媒体快照是瞬态的。
+  //    三个按钮的文案里「暂停」与「播放」复用上面已有的键（panel 域），不重复登记 ——
+  //    只有「上一首 / 下一首」是本模块自己的。英文侧注意 `play` 的上下文后缀键
+  //    （`weT("播放", null, "play")`）走的是 panel 域那条，这里只登记这两个新键。
+  "听歌": "Now playing",
+  "在面板上显示系统正在播放的媒体，并直接控制上一首 / 播放暂停 / 下一首（默认关）": "Shows the media playing on this machine and controls previous / play-pause / next right from the panel (off by default)",
+  "启用听歌": "Enable now playing",
+  "显示系统正在播放的媒体（歌名 / 歌手 / 专辑 / 进度 / 歌词）并提供上一首、播放暂停、下一首三个按钮；数据来自 Windows 系统媒体会话，不依赖任何播放器插件": "Shows the media playing on this machine (title / artist / album / progress / lyrics) with previous, play-pause and next buttons; the data comes from the Windows system media session and needs no player plugin",
+  "没有正在播放的媒体": "Nothing is playing right now",
+  "上一首": "Previous",
+  "下一首": "Next",
+
   // ── src/panel-tabs.js · 「关于」页签（简介 / 致谢 / 仓库 / 交流群）──
   //    人名与项目标识不译（oneincase / YV3507 / WebWallGL / media-bridge / scene-gl…）；
   //    中文全角标点只出现在键里 —— 值里一律 ASCII（守卫会把全角标点当"中文"判红）。
